@@ -1,0 +1,53 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+      GH_TOKEN: ${{ github.token }}
+      WALLY_AUTH_TOKEN: ${{ secrets.WALLY_AUTH_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Set up project tools
+        uses: jdx/mise-action@v2
+
+      - name: Install project tools
+        run: mise install
+
+      - name: Install JavaScript dependencies
+        run: npm ci
+
+      - name: Verify the release candidate
+        run: npm run check && npm test
+
+      - name: Create release pull request or publish
+        uses: changesets/action@v1
+        with:
+          version: npm run version
+          publish: npm run release
+          commit: "chore: release ok"
+          title: "chore: release ok"
+          createGithubReleases: false

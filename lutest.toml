@@ -1,0 +1,15 @@
+[discovery]
+gitignore = true
+
+[discovery.lute]
+require = "@vendor/t"
+roots = ["src", "pokedex"]
+
+[discovery.roblox]
+require = "ReplicatedStorage.Packages.t"
+roots = ["src"]
+
+[roblox]
+universe_id = 10460283574
+place_id = 87484847405188
+rojo_project = "dev.project.json"

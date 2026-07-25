@@ -1,0 +1,14 @@
+{
+  "name": "ok",
+  "tree": {
+    "$className": "DataModel",
+    "ServerScriptService": {
+      "$path": "examples/roblox"
+    },
+    "ReplicatedStorage": {
+      "Packages": {
+        "$path": "DevPackages"
+      }
+    }
+  }
+}

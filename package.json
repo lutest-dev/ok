@@ -1,0 +1,22 @@
+{
+  "name": "@cayasde/ok",
+  "version": "0.1.0",
+  "description": "A compact assertion and mocking library for Luau and Roblox.",
+  "license": "MIT",
+  "repository": "https://github.com/lutest-dev/ok",
+  "scripts": {
+    "prepare": "husky",
+    "format:check": "node scripts/check.mjs format",
+    "typecheck": "node scripts/check.mjs typecheck",
+    "check": "npm run format:check && npm run typecheck",
+    "test": "node scripts/test.mjs",
+    "version": "node scripts/version.mjs",
+    "build:rbxm": "node scripts/build-rbxm.mjs",
+    "release": "node scripts/release.mjs"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.7",
+    "@types/node": "^22.15.0",
+    "husky": "^9.1.7"
+  }
+}

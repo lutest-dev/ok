@@ -1,0 +1,24 @@
+name = "cayasde/ok"
+version = "0.1.0"
+description = "A compact assertion and mock library for Luau and Roblox."
+license = "MIT"
+repository = "https://github.com/lutest-dev/ok"
+
+[target]
+environment = "roblox"
+lib = "src/init.luau"
+build_files = ["src"]
+
+[indices]
+default = "https://github.com/pesde-pkg/index"
+
+[wally_indices]
+default = "https://github.com/UpliftGames/wally-index"
+
+[dependencies]
+t = { wally = "cayasde/lutest", version = "0.7.1" }
+scripts_rojo = { name = "pesde/scripts_rojo", version = "^0.2.0", target = "lune" }
+
+[scripts]
+roblox_sync_config_generator = ".pesde/scripts_rojo/roblox_sync_config_generator.luau"
+sourcemap_generator = ".pesde/scripts_rojo/sourcemap_generator.luau"

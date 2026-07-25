@@ -1,0 +1,11 @@
+DevPackages/
+Packages/
+roblox_packages/
+.pesde/
+luau_packages/
+lune_packages/
+.env
+sourcemap.json
+pokedex/.cache/
+node_modules/
+dist/
