@@ -1,37 +1,16 @@
+local types = require '@self/types'
+
 local api = { mock = {} }
 
-export type Arguments = {
-	n: number,
-	[number]: any,
-}
+export type Arguments = types.Arguments
+export type Call = types.Call
+export type SpyCall = types.SpyCall
+export type Spy = types.Spy
+export type Stub = types.Stub
+export type Intercept = types.Intercept
+export type Mock = types.Mock
 
-export type Call = {
-	args: Arguments,
-	_call: never,
-}
-
-export type SpyCall = {
-	args: Arguments,
-	returns: Arguments?,
-	error: any?,
-}
-
-export type Spy = {
-	calls: { SpyCall },
-	_spy: never,
-}
-
-export type Stub = {
-	_stub: never,
-}
-
-export type Intercept = {
-	_intercept: never,
-}
-
-export type Mock = Spy | Stub | Intercept
-
-type PackedValues = Arguments
+type PackedValues = types.Arguments
 
 local release_original = {}
 local mock_marker = {}
