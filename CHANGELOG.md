@@ -1,5 +1,11 @@
 # @cayasde/ok
 
+## 1.0.2
+
+### Patch Changes
+
+- c558c75: Restore the Wally package's root Rojo project so Pesde can require the module directly.
+
 ## 1.0.1
 
 ### Patch Changes
