@@ -10,7 +10,7 @@ With Wally:
 
 ```toml
 [dependencies]
-ok = "cayasde/ok@0.1.0"
+ok = "cayasde/ok@1.0.2"
 ```
 
 Then install dependencies and require the package from your test:
