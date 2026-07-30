@@ -249,6 +249,10 @@ The callback may make sequential calls to the same intercept. `respond` and
 `release` return the next captured call, or `nil` after the callback finishes.
 Multiple callbacks may be pending on the same intercept; resolving a call
 resumes only its own callback.
+
+`capture`, `respond`, and `release` may yield while waiting for the controlled
+callback or released original method to continue. The test runner must support
+yielding tests when the code under test does.
 Resolve every captured call before restoring its intercept.
 
 ```luau
