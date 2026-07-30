@@ -93,11 +93,17 @@ ok.deepEq(player.inventory, {
 ### `ok.throws(callback, ...args)` and `ok.throwsWith(expectedError, callback, ...args)`
 
 Assert that a callback throws, optionally with an exact error value.
+`ok.throws` returns the captured error, so a test can inspect it further.
 
 ```luau
 ok.throws(function()
 	wallet:increase(-1)
 end)
+
+local failure = ok.throws(function()
+	error { code = 'INSUFFICIENT_BALANCE' }
+end)
+ok.eq('INSUFFICIENT_BALANCE', failure.code)
 
 ok.throwsWith('insufficient balance', function()
 	wallet:decrease(999)
@@ -141,7 +147,13 @@ Passes when the spy was called exactly `count` times.
 
 ### `ok.calledWith(spy, ...args)`
 
-Passes when at least one recorded call received exactly `args`.
+Passes when at least one recorded call received exactly `args` and returns the
+matching `SpyCall`.
+
+```luau
+local call = ok.calledWith(spy, 'hello')
+ok.eq('hello', call.args[1])
+```
 
 ## Stubs
 
