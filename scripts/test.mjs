@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process'
 
 const testFiles = [
 	'src/init.luau',
+	'tests/init.luau',
 	'pokedex/src/card.luau',
 	'pokedex/src/pokemon.luau',
 	'pokedex/src/pokeapi.luau',

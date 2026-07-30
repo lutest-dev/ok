@@ -29,21 +29,12 @@ received value is available; a custom message replaces that diagnostic.
 ```luau
 local ok = require '@lib'
 
-ok.that(player.is_alive)
 ok.eq(100, player.health)
 ok.neq('guest', player.role)
 ok.isNil(player.target)
 ok.isNotNil(player.character)
 ok.strContains(player.name, 'cayasde')
 ok.near(10, player.position.X, 0.1)
-```
-
-### `ok.that(condition, message?)`
-
-Passes when `condition` is true.
-
-```luau
-ok.that(wallet:balance() >= 0)
 ```
 
 ### `ok.eq(expected, actual, message?)`

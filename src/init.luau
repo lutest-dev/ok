@@ -1,37 +1,16 @@
+local types = require '@self/types'
+
 local api = { mock = {} }
 
-export type Arguments = {
-	n: number,
-	[number]: any,
-}
+export type Arguments = types.Arguments
+export type Call = types.Call
+export type SpyCall = types.SpyCall
+export type Spy = types.Spy
+export type Stub = types.Stub
+export type Intercept = types.Intercept
+export type Mock = types.Mock
 
-export type Call = {
-	args: Arguments,
-	_call: never,
-}
-
-export type SpyCall = {
-	args: Arguments,
-	returns: Arguments?,
-	error: any?,
-}
-
-export type Spy = {
-	calls: { SpyCall },
-	_spy: never,
-}
-
-export type Stub = {
-	_stub: never,
-}
-
-export type Intercept = {
-	_intercept: never,
-}
-
-export type Mock = Spy | Stub | Intercept
-
-type PackedValues = Arguments
+type PackedValues = types.Arguments
 
 local release_original = {}
 local mock_marker = {}
@@ -81,11 +60,6 @@ local function resume_captured_call(call: any, values: any)
 	return next_call
 end
 
-function api.that(condition: boolean, message: string?)
-	if condition then return end
-	error(message or `Expected true, got {format_value(condition)}`, 2)
-end
-
 function api.eq(expected: any, actual: any, message: string?)
 	if expected == actual then return end
 	error(
@@ -111,9 +85,11 @@ function api.isNil(value: any, message: string?)
 	error(message or `Expected nil, got {format_value(value)}`, 2)
 end
 
-function api.isNotNil(value: any, message: string?)
-	if value ~= nil then return end
-	error(message or 'Expected a non-nil value, got nil', 2)
+function api.isNotNil<T>(value: T?, message: string?): T
+	if value == nil then
+		error(message or 'Expected a non-nil value, got nil', 2)
+	end
+	return value
 end
 
 function api.strContains(
@@ -132,9 +108,9 @@ function api.strContains(
 	)
 end
 
-function api.throws(callback: (...any) -> (), ...: any)
-	local succeeded = pcall(callback, ...)
-	if not succeeded then return end
+function api.throws(callback: (...any) -> (), ...: any): any
+	local succeeded, actual_error = pcall(callback, ...)
+	if not succeeded then return actual_error end
 	error('Expected callback to throw, but it returned successfully', 2)
 end
 
@@ -169,7 +145,7 @@ function api.calledTimes(spy: Spy, count: number, message: string?)
 	error(message or `Expected {count} {call_label}, got {actual_count}`, 2)
 end
 
-function api.calledWith(spy: Spy, ...: any)
+function api.calledWith(spy: Spy, ...: any): SpyCall
 	local expected_args = pack(...)
 
 	for _, call in spy.calls do
@@ -184,7 +160,7 @@ function api.calledWith(spy: Spy, ...: any)
 			end
 		end
 
-		if matches then return end
+		if matches then return call end
 	end
 
 	error(
@@ -482,31 +458,6 @@ end)()
 
 if not t then return api end
 
-t.suite('ok.that', function()
-	t.test('should pass when condition is true', function()
-		api.that(true)
-	end)
-
-	t.test('should fail when condition is false', function()
-		local failure = capture_failure(function()
-			api.that(false)
-		end)
-
-		if #failure == 0 then error('Expected a failure message', 2) end
-	end)
-
-	t.test('should include custom message in failure', function()
-		local message = 'The round must have a winner'
-		local failure = capture_failure(function()
-			api.that(false, message)
-		end)
-
-		if not string.find(failure, message, 1, true) then
-			error(`Expected failure to include {message}, got {failure}`, 2)
-		end
-	end)
-end)
-
 t.suite('ok.eq', function()
 	t.test('should pass when values are equal', function()
 		api.eq(3, 3)
@@ -727,6 +678,12 @@ t.suite('ok.isNotNil', function()
 		api.isNotNil(false)
 	end)
 
+	t.test('should return the non-nil value', function()
+		local profile = api.isNotNil { id = 42 }
+
+		if profile.id ~= 42 then error('Expected the validated value', 2) end
+	end)
+
 	t.test('should fail for nil', function()
 		local failure = capture_failure(function()
 			api.isNotNil(nil)
@@ -784,6 +741,16 @@ t.suite('ok.throws', function()
 		api.throws(function()
 			error 'The action failed'
 		end)
+	end)
+
+	t.test('should return the captured error', function()
+		local captured_error = api.throws(function()
+			error('The action failed', 0)
+		end)
+
+		if captured_error ~= 'The action failed' then
+			error(`Expected captured error, got {captured_error}`, 2)
+		end
 	end)
 
 	t.test('should forward arguments to the callback', function()
@@ -858,9 +825,6 @@ t.suite('assertion diagnostics', function()
 	end
 
 	t.test('should describe value assertion failures consistently', function()
-		expect_diagnostic('Expected true, got false', function()
-			api.that(false)
-		end)
 		expect_diagnostic('Expected "Pikachu", got "Gengar"', function()
 			api.eq('Pikachu', 'Gengar')
 		end)
@@ -1885,6 +1849,23 @@ t.suite('ok.calledWith', function()
 		target:run('Ada', 100)
 
 		api.calledWith(spy, 'Ada', 100)
+	end)
+
+	t.test('should return the matching call', function()
+		local target = {
+			run = function()
+				return 'result'
+			end,
+		}
+		local spy = api.mock.spy(target, 'run')
+
+		target:run('Ada', 100)
+
+		local call = api.calledWith(spy, 'Ada', 100)
+
+		if call ~= spy.calls[1] then
+			error('Expected the matching spy call', 2)
+		end
 	end)
 
 	t.test(

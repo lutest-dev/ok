@@ -477,7 +477,7 @@ t.suite('card.render', function()
 			card_width = card_width or utf8.len(line)
 			ok.eq(card_width, (utf8.len(line)))
 		end
-		ok.that((card_width or 0) > width)
+		assert((card_width or 0) > width)
 	end)
 
 	t.test('expands to fit every ability', function()
