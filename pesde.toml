@@ -1,5 +1,5 @@
 name = "cayasde/ok"
-version = "1.0.0"
+version = "1.0.1"
 description = "A compact assertion and mock library for Luau and Roblox."
 license = "MIT"
 repository = "https://github.com/lutest-dev/ok"

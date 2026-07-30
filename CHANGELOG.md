@@ -1,5 +1,11 @@
 # @cayasde/ok
 
+## 1.0.1
+
+### Patch Changes
+
+- f48074a: Exclude the Rojo project file from the published Wally package so Pesde can link the module correctly.
+
 ## 1.0.0
 
 ### Major Changes
