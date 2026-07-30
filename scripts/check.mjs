@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
-const roots = ['src', 'pokedex']
+const roots = ['src', 'tests', 'pokedex']
 
 function collectLuauFiles(directory) {
 	return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
