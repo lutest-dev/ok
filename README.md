@@ -253,6 +253,10 @@ resumes only its own callback.
 `capture`, `respond`, and `release` may yield while waiting for the controlled
 callback or released original method to continue. The test runner must support
 yielding tests when the code under test does.
+
+Only the coroutine passed to `capture` is controlled. Calls made from child or
+independent coroutines, such as ones created with `task.spawn`, are outside the
+capture scope and must be coordinated by the test separately.
 Resolve every captured call before restoring its intercept.
 
 ```luau
