@@ -29,7 +29,54 @@ local function format_value(value: any): string
 	return tostring(value)
 end
 
-local function resume_captured_call(call: any, values: any)
+local function defer(callback: () -> ())
+	if task ~= nil then
+		task.defer(callback)
+		return
+	end
+
+	local succeeded, lute_task = pcall(require, '@lute/task')
+	if succeeded then
+		lute_task.defer(callback)
+		return
+	end
+
+	error('Expected the runtime to provide task.defer', 2)
+end
+
+local function resume_waiter(state: any)
+	local waiter = state._waiter
+	if waiter == nil then return end
+
+	defer(function()
+		if state._waiter ~= waiter then return end
+		state._waiter = nil
+
+		local result = pack(coroutine.resume(waiter))
+		if not result[1] then error(result[2], 0) end
+	end)
+end
+
+local function settle_capture(state: any, event: any)
+	state._event = event
+	resume_waiter(state)
+end
+
+local function wait_for_capture(state: any): Call?
+	while state._event == nil do
+		state._waiter = coroutine.running()
+		coroutine.yield()
+		state._waiter = nil
+	end
+
+	local event = state._event
+	state._event = nil
+	if event._kind == 'error' then error(event._value, 0) end
+	if event._kind == 'complete' then return nil end
+	return event._value
+end
+
+local function resume_captured_call(call: any, values: any): Call?
 	if type(call) ~= 'table' or call._marker ~= captured_call_marker then
 		error('Expected a call captured by ok.mock.capture', 3)
 	end
@@ -37,27 +84,9 @@ local function resume_captured_call(call: any, values: any)
 	call._resolved = true
 
 	local result = pack(coroutine.resume(call._thread, unpack_values(values)))
-	local intercept = call._intercept
-	if not result[1] then
-		intercept._capture_threads[call._thread] = nil
-		error(result[2], 0)
-	end
-	if coroutine.status(call._thread) == 'dead' then
-		intercept._capture_threads[call._thread] = nil
-		return nil
-	end
+	if not result[1] then error(result[2], 0) end
 
-	local next_call = result[2]
-	if
-		type(next_call) ~= 'table'
-		or next_call._marker ~= captured_call_marker
-		or next_call._intercept ~= intercept
-	then
-		intercept._capture_threads[call._thread] = nil
-		error('Expected captured callback to call the same intercept', 2)
-	end
-
-	return next_call
+	return wait_for_capture(call._state)
 end
 
 function api.eq(expected: any, actual: any, message: string?)
@@ -251,6 +280,7 @@ function api.mock.intercept(target: any, field_name: string): Intercept
 		if not intercept._capture_threads[coroutine.running()] then
 			error('Expected intercepted calls to run inside mock.capture', 2)
 		end
+		local state = intercept._capture_threads[coroutine.running()]
 
 		local raw_args = pack(...)
 		local first_public_index = if raw_args[1] == target then 2 else 1
@@ -265,10 +295,12 @@ function api.mock.intercept(target: any, field_name: string): Intercept
 			_intercept = intercept,
 			_raw_args = raw_args,
 			_thread = coroutine.running(),
+			_state = state,
 			_resolved = false,
 		}
 		intercept._pending_calls += 1
-		local returned = pack(coroutine.yield(call))
+		settle_capture(state, { _kind = 'call', _value = call })
+		local returned = pack(coroutine.yield())
 		intercept._pending_calls -= 1
 		if returned[1] == release_original then
 			return (original :: any)(unpack_values(raw_args))
@@ -283,25 +315,33 @@ end
 
 function api.mock.capture(intercept: Intercept, callback: () -> ()): Call
 	local internal_intercept = intercept :: any
-	local thread = coroutine.create(callback)
-	internal_intercept._capture_threads[thread] = true
+	local state = {
+		_event = nil,
+		_waiter = nil,
+		_thread = nil :: any,
+	}
+	local thread = coroutine.create(function()
+		local succeeded, failure = pcall(callback)
+		internal_intercept._capture_threads[coroutine.running()] = nil
+		if succeeded then
+			settle_capture(state, { _kind = 'complete' })
+		else
+			settle_capture(state, { _kind = 'error', _value = failure })
+		end
+	end)
+	state._thread = thread
+	internal_intercept._capture_threads[thread] = state
 	local result = pack(coroutine.resume(thread))
 	if not result[1] then
 		internal_intercept._capture_threads[thread] = nil
 		error(result[2], 0)
 	end
 
-	local call = result[2]
-	if
-		type(call) ~= 'table'
-		or call._marker ~= captured_call_marker
-		or call._intercept ~= internal_intercept
-	then
-		internal_intercept._capture_threads[thread] = nil
+	local call = wait_for_capture(state)
+	if call == nil then
 		error('Expected callback to call the intercepted method', 2)
 	end
-
-	return call :: any
+	return call
 end
 
 function api.mock.respond(call: Call, ...: any): Call?
@@ -457,6 +497,11 @@ local t = (function()
 end)()
 
 if not t then return api end
+
+local function wait()
+	if task ~= nil then return task.wait() end
+	return (require '@lute/task').wait()
+end
 
 t.suite('ok.eq', function()
 	t.test('should pass when values are equal', function()
@@ -1369,6 +1414,92 @@ t.suite('ok.mock.capture', function()
 		api.mock.restore(intercept)
 	end)
 
+	t.test(
+		'should wait for a callback yield before capturing a call',
+		function()
+			local target = {
+				load = function(_, key)
+					return key
+				end,
+			}
+			local intercept = api.mock.intercept(target, 'load')
+			local result
+
+			local call = api.mock.capture(intercept, function()
+				wait()
+				result = target:load 'profile'
+			end)
+
+			if call.args[1] ~= 'profile' then
+				error(`Expected profile, got {call.args[1]}`, 2)
+			end
+
+			api.mock.respond(call, 'loaded profile')
+
+			if result ~= 'loaded profile' then
+				error(`Expected loaded profile, got {result}`, 2)
+			end
+
+			api.mock.restore(intercept)
+		end
+	)
+
+	t.test('should wait for a callback yield after resolving a call', function()
+		local target = {
+			load = function(_, key)
+				return key
+			end,
+		}
+		local intercept = api.mock.intercept(target, 'load')
+		local first_result, second_result
+
+		local first_call = api.mock.capture(intercept, function()
+			first_result = target:load 'profile'
+			wait()
+			second_result = target:load 'inventory'
+		end)
+
+		local second_call = api.mock.respond(first_call, 'loaded profile')
+
+		if first_result ~= 'loaded profile' then
+			error(`Expected loaded profile, got {first_result}`, 2)
+		end
+		if second_call == nil or second_call.args[1] ~= 'inventory' then
+			error('Expected inventory call after the callback yield', 2)
+		end
+
+		api.mock.respond(second_call, 'loaded inventory')
+
+		if second_result ~= 'loaded inventory' then
+			error(`Expected loaded inventory, got {second_result}`, 2)
+		end
+
+		api.mock.restore(intercept)
+	end)
+
+	t.test('should propagate an error after a callback yield', function()
+		local target = {
+			load = function() end,
+		}
+		local intercept = api.mock.intercept(target, 'load')
+
+		local call = api.mock.capture(intercept, function()
+			target:load()
+			wait()
+			error('Request failed', 0)
+		end)
+
+		local failure = capture_failure(function()
+			api.mock.respond(call)
+		end)
+
+		if not string.find(failure, 'Request failed', 1, true) then
+			error(`Expected callback error, got {failure}`, 2)
+		end
+
+		api.mock.restore(intercept)
+	end)
+
 	t.test('should clean up after the callback fails before a call', function()
 		local target = {
 			load = function() end,
@@ -1637,6 +1768,29 @@ t.suite('ok.mock.release', function()
 			end
 		end
 	)
+
+	t.test('should wait when the original method yields', function()
+		local target = {
+			load = function(_, profile)
+				wait()
+				return `original {profile}`
+			end,
+		}
+		local intercept = api.mock.intercept(target, 'load')
+		local result
+
+		local call = api.mock.capture(intercept, function()
+			result = target:load 'profile'
+		end)
+
+		api.mock.release(call)
+
+		if result ~= 'original profile' then
+			error(`Expected original profile, got {result}`, 2)
+		end
+
+		api.mock.restore(intercept)
+	end)
 
 	t.test('should preserve errors from the original method', function()
 		local target = {
